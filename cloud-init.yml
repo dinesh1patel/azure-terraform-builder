@@ -1,0 +1,18 @@
+#cloud-config
+package_update: true
+packages:
+  - git
+  - curl
+  - build-essential
+
+runcmd:
+  - curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+  - apt-get install -y nodejs
+  - npm install -g pm2
+  - rm -rf /var/www/azure-terraform-builder && mkdir -p /var/www/azure-terraform-builder
+  - git clone https://github.com/dinesh1patel/azure-terraform-builder.git /var/www/azure-terraform-builder
+  - cd /var/www/azure-terraform-builder && npm install && npm run build
+  - pm2 stop all || true
+  - pm2 serve /var/www/azure-terraform-builder/dist 80 --name react-app --spa
+  - pm2 startup systemd -u azureuser --hp /home/azureuser
+  - pm2 save
