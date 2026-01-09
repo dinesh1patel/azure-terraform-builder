@@ -46,14 +46,26 @@ else
   sed -i '' "s~APP_DIR~$APP_DIR~g; s~REPO_URL~$REPO_URL~g" cloud-init.yml
 fi
 
-az vm create \
-  --resource-group "$RESOURCE_GROUP" \
-  --name "$VM_NAME" \
-  --image Ubuntu2204 \
-  --admin-username "$ADMIN_USER" \
-  --ssh-key-values "$SSH_KEY_PATH" \
-  --public-ip-sku Standard \
-  --custom-data cloud-init.yml
+# Choose SSH auth option based on key presence
+SSH_AUTH_FLAGS=()
+if [[ -f "$SSH_KEY_PATH" ]]; then
+  SSH_AUTH_FLAGS+=(--ssh-key-values "$SSH_KEY_PATH")
+else
+  SSH_AUTH_FLAGS+=(--generate-ssh-keys)
+fi
+
+if az vm show -g "$RESOURCE_GROUP" -n "$VM_NAME" >/dev/null 2>&1; then
+  echo "VM $VM_NAME already exists in $RESOURCE_GROUP; skipping create."
+else
+  az vm create \
+    --resource-group "$RESOURCE_GROUP" \
+    --name "$VM_NAME" \
+    --image Ubuntu2204 \
+    --admin-username "$ADMIN_USER" \
+    "${SSH_AUTH_FLAGS[@]}" \
+    --public-ip-sku Standard \
+    --custom-data cloud-init.yml
+fi
 
 # Open HTTP port
 az vm open-port --resource-group "$RESOURCE_GROUP" --name "$VM_NAME" --port "$HTTP_PORT"
